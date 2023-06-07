@@ -13,15 +13,15 @@ app.get('/', (req, res) => {
   res.json(db);
 });
 
-app.post('/registro', (req, res) => {
-  const { user, pass, email, tarjeta } = req.body;
-  if (user === undefined || pass === undefined || email === undefined || tarjeta === undefined) {
+app.post('/user', (req, res) => {
+  const { name, email, password } = req.body;
+  if (name === undefined || email === undefined || password === undefined) {
     res.status(400).json({
       message: 'Faltan datos'
     });
     return;
   }
-  const userExists = db.find((u) => u.user === user);
+  const userExists = db.find((u) => u.name === name);
   if (userExists) {
     res.status(400).json({
       message: 'El usuario ya existe'
@@ -51,57 +51,32 @@ app.post('/registro', (req, res) => {
       //message: 'La tarjeta no es válida'
   //});
 
-  db.push({ user, pass, email, monto: 0, tarjeta, historial: []});
+  db.push({ name, email, password, monto: 0, tarjeta, historial: []});
   res.json({
     message: 'Usuario registrado'
   });
 });
 
-app.post('/login', (req, res) => {
-  const { user, pass } = req.body;
-  if (user === undefined || pass === undefined) {
-    res.status(400).json({
-      message: 'Faltan datos'
-    });
-    return;
-  }
-  const userExists = db.find((u) => u.user === user);
-  if (!userExists) {
-    res.status(400).json({
-      message: 'El usuario no existe'
-    });
-    return;
-  }
-  if (userExists.pass !== pass) {
-    res.status(400).json({
-      message: 'La contraseña es incorrecta'
-    });
-    return;
-  }
-  res.json({
-    message: 'Usuario logueado'
-  });
-});
 
-app.post('/recarga', (req, res) => {
-  const { monto, tarjeta } = req.body;
-  if (monto === undefined || tarjeta === undefined) {
+app.post('/recargar', (req, res) => {
+  const { amount, credit_card } = req.body;
+  if (amount === undefined || credit_card === undefined) {
     res.status(400).json({
       message: 'Faltan datos'
     });
     return;
   }
-  const userExists = db.find((u) => u.tarjeta === tarjeta);
+  const userExists = db.find((u) => u.credit_card === credit_card);
   if (!userExists) {
     res.status(400).json({
       message: 'La tarjeta no existe'
     });
     return;
   }
-  userExists.monto += monto;
+  userExists.amount += amount;
   userExists.historial.push({
     movimiento: 'Recarga',
-    monto: monto,
+    amount: amount,
     usuario: '-',
     glosa: '-'
   });
@@ -110,51 +85,51 @@ app.post('/recarga', (req, res) => {
   });
 });
 
-app.post('/transferir', (req, res) => {
-  const {user, mail, monto, glosa} = req.body;
-  if (user === undefined || mail === undefined || monto === undefined || glosa === undefined) {
+app.post('/transferencia', (req, res) => {
+  const {email, amount, comment} = req.body;
+  if (email === undefined || amount === undefined || comment === undefined) {
     res.status(400).json({
       message: 'Faltan datos'
     });
     return;
   }
-  const userExists = db.find((u) => u.user === user);
+  const userExists = db.find((u) => u.name === name);
   if (!userExists) {
     res.status(400).json({
       message: 'El usuario no existe'
     });
     return;
   }
-  const emailExists = db.find((u) => u.email === mail);
+  const emailExists = db.find((u) => u.email === email);
   if (!emailExists) {
     res.status(400).json({
       message: 'El email no existe'
     });
     return;
   }
-  if (userExists.monto < monto) {
+  if (userExists.amount < amount) {
     res.status(400).json({
       message: 'No tienes saldo suficiente'
     });
     return;
   }
-  userExists.monto -= monto;
-  emailExists.monto += monto;
+  userExists.amount -= amount;
+  emailExists.amount += amount;
   userExists.historial.push({
     movimiento: 'Envío dinero',
-    monto: monto,
+    amount: amount,
     usuario: emailExists.email,
-    glosa: glosa
+    comment: comment
   });
   emailExists.historial.push({
     movimiento: 'Dinero recibido',
-    monto: monto,
+    amount: amount,
     usuario: userExists.email,
-    glosa: glosa
+    comment: comment
   });
   res.json({
     message: 'Transferencia exitosa',
-    glosa: glosa
+    comment: comment
   });
 
 });
