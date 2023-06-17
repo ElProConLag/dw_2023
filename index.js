@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 
 mongoose.connect('mongodb://127.0.0.1:27017/mongo');
 
@@ -13,7 +14,36 @@ app.get('/', (req, res) => {
   res.json(db);
 });
 
-app.post('/user', (req, res) => {
+app.post('/ingresar', (req, res) => {
+  const { email, password } = req.body;
+  if (email === undefined || password === undefined) {
+    res.status(400).json({
+      message: 'Faltan datos'
+    });
+    return false;
+  }
+  const userExists = db.find((u) => u.email === email);
+  if(!userExists) {
+    res.status(400).json({
+      message: 'El usuario no existe'
+    });
+    return false;
+  }
+  if(userExists.password !== password) {
+    res.status(400).json({
+      message: 'La contraseña es incorrecta'
+    });
+    return false;
+  }
+  //make a authentication token below
+  const token = jwt.sign({email: userExists.email}, 'secret');
+  res.json({
+    message: 'Ingreso exitoso',
+    token: token
+  });
+});
+
+app.post('/usuario', (req, res) => {
   const { name, email, password } = req.body;
   if (name === undefined || email === undefined || password === undefined) {
     res.status(400).json({
@@ -85,7 +115,7 @@ app.post('/recargar', (req, res) => {
   });
 });
 
-app.post('/transferencia', (req, res) => {
+app.post('/transferir', (req, res) => {
   const {email, amount, comment} = req.body;
   if (email === undefined || amount === undefined || comment === undefined) {
     res.status(400).json({
@@ -132,6 +162,39 @@ app.post('/transferencia', (req, res) => {
     comment: comment
   });
 
+});
+
+app.post('/retirar', (req, res) => {
+  const { amount, credit_card } = req.body;
+  if (amount === undefined || credit_card === undefined) {
+    res.status(400).json({
+      message: 'Faltan datos'
+    });
+    return false;
+  }
+  const userExists = db.find((u) => u.credit_card === credit_card);
+  if (!userExists) {
+    res.status(400).json({
+      message: 'La tarjeta no existe'
+    });
+    return false;
+  }
+  if (userExists.amount < amount) {
+    res.status(400).json({
+      message: 'No tienes saldo suficiente'
+    });
+    return false;
+  }
+  userExists.amount -= amount;
+  userExists.historial.push({
+    movimiento: 'Retiro',
+    amount: amount,
+    usuario: '-',
+    comment: '-'
+  });
+  res.json({
+    message: 'Retiro exitoso'
+  });
 });
 
 app.listen(3000, () => {
