@@ -42,7 +42,8 @@ app.post('/ingresar', (req, res) => {
     });
     return false;
   }
-  const userExists = db.find((u) => u.email === email);
+  const collection = client.db("apibank").collection("usuarios");
+  const userExists = collection.findOne({ email: email });
   if(!userExists) {
     res.status(400).json({
       message: 'El usuario no existe'
@@ -71,14 +72,15 @@ app.post('/usuario', (req, res) => {
     });
     return;
   }
-  const userExists = db.find((u) => u.name === name);
+  const collection = client.db("apibank").collection("usuarios");
+  const userExists = collection.findOne({ name: name });
   if (userExists) {
     res.status(400).json({
       message: 'El usuario ya existe'
     });
     return;
   }
-  const emailExists = db.find((u) => u.email === email);
+  const emailExists = collection.findOne({ email: email });
   if (emailExists) {
     res.status(400).json({
       message: 'El email ya existe'
@@ -101,7 +103,7 @@ app.post('/usuario', (req, res) => {
       //message: 'La tarjeta no es válida'
   //});
 
-  db.push({ name, email, password, monto: 0, tarjeta, historial: []});
+  collection.insertOne({ name, email, password, monto: 0, tarjeta, historial: []});
   res.json({
     message: 'Usuario registrado'
   });
@@ -116,7 +118,8 @@ app.post('/recargar', (req, res) => {
     });
     return;
   }
-  const userExists = db.find((u) => u.credit_card === credit_card);
+  const collection = client.db("apibank").collection("usuarios");
+  const userExists = collection.findOne({ credit_card: credit_card });
   if (!userExists) {
     res.status(400).json({
       message: 'La tarjeta no existe'
@@ -130,6 +133,7 @@ app.post('/recargar', (req, res) => {
     usuario: '-',
     glosa: '-'
   });
+  collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, historial: userExists.historial } });
   res.json({
     message: 'Recarga exitosa'
   });
@@ -143,14 +147,15 @@ app.post('/transferir', (req, res) => {
     });
     return;
   }
-  const userExists = db.find((u) => u.name === name);
+  const collection = client.db("apibank").collection("usuarios");
+  const userExists = collection.findOne({ email: email });
   if (!userExists) {
     res.status(400).json({
       message: 'El usuario no existe'
     });
     return;
   }
-  const emailExists = db.find((u) => u.email === email);
+  const emailExists = collection.findOne({ email: email });
   if (!emailExists) {
     res.status(400).json({
       message: 'El email no existe'
@@ -177,6 +182,8 @@ app.post('/transferir', (req, res) => {
     usuario: userExists.email,
     comment: comment
   });
+  collection.updateOne({ email: email }, { $set: { amount: userExists.amount, historial: userExists.historial } });
+  collection.updateOne({ email: emailExists.email }, { $set: { amount: emailExists.amount, historial: emailExists.historial } });
   res.json({
     message: 'Transferencia exitosa',
     comment: comment
@@ -192,7 +199,8 @@ app.post('/retirar', (req, res) => {
     });
     return false;
   }
-  const userExists = db.find((u) => u.credit_card === credit_card);
+  const collection = client.db("apibank").collection("usuarios");
+  const userExists = collection.findOne({ credit_card: credit_card });
   if (!userExists) {
     res.status(400).json({
       message: 'La tarjeta no existe'
@@ -212,6 +220,7 @@ app.post('/retirar', (req, res) => {
     usuario: '-',
     comment: '-'
   });
+  collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, historial: userExists.historial } });
   res.json({
     message: 'Retiro exitoso'
   });
