@@ -73,14 +73,6 @@ app.post('/usuario', (req, res) => {
     });
     return;
   }
-
-  // regex for credit card
-  //const regex2 = /^([0-9]{4}[-]){3}[0-9]{4}$/;
-  //if (!regex2.test(tarjeta)) {
-    //res.status(400).json({
-      //message: 'La tarjeta no es válida'
-  //});
-
   db.push({ name, email, password, monto: 0, tarjeta, historial: []});
   res.json({
     message: 'Usuario registrado'
@@ -196,7 +188,6 @@ app.post('/retirar', (req, res) => {
     message: 'Retiro exitoso'
   });
 });
-
 app.listen(3000, () => {
   console.log('Server is running on port 3000');
 });
