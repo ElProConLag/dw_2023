@@ -14,13 +14,27 @@ const client = new MongoClient(uri, {
 });
 
 async function run() {
-  try {
-    // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
-    // Send a ping to confirm a successful connection
-    await client.db("apibank").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } finally {
+  let attempts = 0;
+  while (attempts < 3) {
+    try {
+      // Connect the client to the server (optional starting in v4.7)
+      await client.connect();
+      // Send a ping to confirm a successful connection
+      await client.db("apibank").command({ ping: 1 });
+      console.log("Pinged your deployment. You successfully connected to MongoDB!");
+      break;
+    } catch (err) {
+      attempts++;
+      console.error(`Error al conectar con la base de datos (intento ${attempts}):`, err);
+      if (attempts >= 3) {
+        console.error('Se han agotado los intentos de conexión');
+        break;
+      }
+      console.log(`Reintentando la conexión en 5 segundos (intento ${attempts + 1})...`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+  }
+  if (attempts < 3) {
     // Ensures that the client will close when you finish/error
     await client.close();
   }
@@ -31,7 +45,16 @@ const app = express();
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.json(db);
+  const collection = client.db("apibank").collection("usuarios");
+  collection.find({}).toArray((err, result) => {
+    if (err) {
+      res.status(500).json({
+        message: 'Error al obtener la base de datos'
+      });
+      return false;
+    }
+    res.json(result);
+  });
 });
 
 app.post('/ingresar', (req, res) => {
@@ -62,6 +85,36 @@ app.post('/ingresar', (req, res) => {
     message: 'Ingreso exitoso',
     token: token
   });
+});
+
+app.get('/salir', (req, res) => {
+  const token = req.headers.authorization;
+  if (token) {
+    jwt.verify(token, 'secret', (err, decoded) => {
+      if (err) {
+        res.status(401).json({
+          message: 'Token inválido'
+        });
+        return false;
+      }
+      res.json({
+        message: 'Sesión cerrada'
+      });
+    });
+  } else {
+    const collection = client.db("apibank").collection("tokens");
+    collection.deleteMany({}, (err, result) => {
+      if (err) {
+        res.status(500).json({
+          message: 'Error al cerrar la sesión'
+        });
+        return false;
+      }
+      res.json({
+        message: 'Sesión cerrada'
+      });
+    });
+  }
 });
 
 app.post('/usuario', (req, res) => {
@@ -103,12 +156,73 @@ app.post('/usuario', (req, res) => {
       //message: 'La tarjeta no es válida'
   //});
 
-  collection.insertOne({ name, email, password, monto: 0, tarjeta, historial: []});
+  collection.insertOne({ name, email, password, monto: 0, tarjeta, movements: []});
   res.json({
     message: 'Usuario registrado'
   });
 });
 
+app.get('/usuario', (req, res) => {
+  const token = req.headers.authorization;
+  if (!token) {
+    res.status(401).json({
+      message: 'No autorizado'
+    });
+    return;
+  }
+  jwt.verify(token, 'secret', (err, decoded) => {
+    if (err) {
+      res.status(401).json({
+        message: 'Token inválido'
+      });
+      return;
+    }
+    const collection = client.db("apibank").collection("usuarios");
+    const userExists = collection.findOne({ email: decoded.email });
+    if (!userExists) {
+      res.status(400).json({
+        message: 'El usuario no existe'
+      });
+      return;
+    }
+    res.json({
+      name: userExists.name,
+      email: userExists.email,
+      amount: userExists.amount,
+      credit_card: userExists.credit_card,
+      movements: userExists.movements
+    });
+  });
+});
+
+app.get('/movimientos', (req, res) => {
+  const token = req.headers.authorization;
+  if (!token) {
+    res.status(401).json({
+      message: 'No autorizado'
+    });
+    return;
+  }
+  jwt.verify(token, 'secret', (err, decoded) => {
+    if (err) {
+      res.status(401).json({
+        message: 'Token inválido'
+      });
+      return;
+    }
+    const collection = client.db("apibank").collection("usuarios");
+    const userExists = collection.findOne({ email: decoded.email });
+    if (!userExists) {
+      res.status(400).json({
+        message: 'El usuario no existe'
+      });
+      return;
+    }
+    res.json({
+      movements: userExists.movements
+    });
+  });
+});
 
 app.post('/recargar', (req, res) => {
   const { amount, credit_card } = req.body;
@@ -127,13 +241,13 @@ app.post('/recargar', (req, res) => {
     return;
   }
   userExists.amount += amount;
-  userExists.historial.push({
+  userExists.movements.push({
     movimiento: 'Recarga',
     amount: amount,
     usuario: '-',
     glosa: '-'
   });
-  collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, historial: userExists.historial } });
+  collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, movements: userExists.movements } });
   res.json({
     message: 'Recarga exitosa'
   });
@@ -170,20 +284,20 @@ app.post('/transferir', (req, res) => {
   }
   userExists.amount -= amount;
   emailExists.amount += amount;
-  userExists.historial.push({
+  userExists.movements.push({
     movimiento: 'Envío dinero',
     amount: amount,
     usuario: emailExists.email,
     comment: comment
   });
-  emailExists.historial.push({
+  emailExists.movements.push({
     movimiento: 'Dinero recibido',
     amount: amount,
     usuario: userExists.email,
     comment: comment
   });
-  collection.updateOne({ email: email }, { $set: { amount: userExists.amount, historial: userExists.historial } });
-  collection.updateOne({ email: emailExists.email }, { $set: { amount: emailExists.amount, historial: emailExists.historial } });
+  collection.updateOne({ email: email }, { $set: { amount: userExists.amount, movements: userExists.movements } });
+  collection.updateOne({ email: emailExists.email }, { $set: { amount: emailExists.amount, movements: emailExists.movements } });
   res.json({
     message: 'Transferencia exitosa',
     comment: comment
@@ -214,13 +328,13 @@ app.post('/retirar', (req, res) => {
     return false;
   }
   userExists.amount -= amount;
-  userExists.historial.push({
+  userExists.movements.push({
     movimiento: 'Retiro',
     amount: amount,
     usuario: '-',
     comment: '-'
   });
-  collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, historial: userExists.historial } });
+  collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, movements: userExists.movements } });
   res.json({
     message: 'Retiro exitoso'
   });
