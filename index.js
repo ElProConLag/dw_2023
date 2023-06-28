@@ -34,10 +34,6 @@ async function run() {
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
   }
-  if (attempts < 3) {
-    // Ensures that the client will close when you finish/error
-    await client.close();
-  }
 }
 run().catch(console.dir);
 
@@ -46,20 +42,29 @@ app.use(express.json());
 
 app.get('/', (req, res) => {
   const collection = client.db("apibank").collection("usuarios");
+  console.log('Collection:', collection);
   collection.find({}).toArray((err, result) => {
+    console.log('Error:', err);
+    console.log('Result:', result);
     if (err) {
+      console.log('Database error');
       res.status(500).json({
         message: 'Error al obtener la base de datos'
       });
       return false;
     }
+    console.log('Database result');
     res.json(result);
   });
 });
 
 app.post('/ingresar', (req, res) => {
-  const { email, password } = req.body;
+  console.log('Request query:', req.query);
+  const { email, password } = req.query;
+  console.log('Email:', email);
+  console.log('Password:', password);
   if (email === undefined || password === undefined) {
+    console.log('Missing data');
     res.status(400).json({
       message: 'Faltan datos'
     });
@@ -67,13 +72,16 @@ app.post('/ingresar', (req, res) => {
   }
   const collection = client.db("apibank").collection("usuarios");
   const userExists = collection.findOne({ email: email });
+  console.log('User exists:', userExists);
   if(!userExists) {
+    console.log('User does not exist');
     res.status(400).json({
       message: 'El usuario no existe'
     });
     return false;
   }
   if(userExists.password !== password) {
+    console.log('Incorrect password');
     res.status(400).json({
       message: 'La contraseña es incorrecta'
     });
@@ -81,6 +89,7 @@ app.post('/ingresar', (req, res) => {
   }
   //make a authentication token below
   const token = jwt.sign({email: userExists.email}, 'secret');
+  console.log('Token:', token);
   res.json({
     message: 'Ingreso exitoso',
     token: token
@@ -89,14 +98,17 @@ app.post('/ingresar', (req, res) => {
 
 app.get('/salir', (req, res) => {
   const token = req.headers.authorization;
+  console.log('Token:', token);
   if (token) {
     jwt.verify(token, 'secret', (err, decoded) => {
       if (err) {
+        console.log('Invalid token');
         res.status(401).json({
           message: 'Token inválido'
         });
-        return false;
+        return;
       }
+      console.log('Session closed');
       res.json({
         message: 'Sesión cerrada'
       });
@@ -105,11 +117,13 @@ app.get('/salir', (req, res) => {
     const collection = client.db("apibank").collection("tokens");
     collection.deleteMany({}, (err, result) => {
       if (err) {
+        console.log('Error closing session');
         res.status(500).json({
           message: 'Error al cerrar la sesión'
         });
-        return false;
+        return;
       }
+      console.log('Session closed');
       res.json({
         message: 'Sesión cerrada'
       });
@@ -118,8 +132,12 @@ app.get('/salir', (req, res) => {
 });
 
 app.post('/usuario', (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password } = req.query;
+  console.log('Name:', name);
+  console.log('Email:', email);
+  console.log('Password:', password);
   if (name === undefined || email === undefined || password === undefined) {
+    console.log('Missing data');
     res.status(400).json({
       message: 'Faltan datos'
     });
@@ -127,14 +145,18 @@ app.post('/usuario', (req, res) => {
   }
   const collection = client.db("apibank").collection("usuarios");
   const userExists = collection.findOne({ name: name });
+  console.log('User exists:', userExists);
   if (userExists) {
+    console.log('User already exists');
     res.status(400).json({
       message: 'El usuario ya existe'
     });
     return;
   }
   const emailExists = collection.findOne({ email: email });
+  console.log('Email exists:', emailExists);
   if (emailExists) {
+    console.log('Email already exists');
     res.status(400).json({
       message: 'El email ya existe'
     });
@@ -143,6 +165,7 @@ app.post('/usuario', (req, res) => {
   // regex for email
   const regex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
   if (!regex.test(email)) {
+    console.log('Invalid email');
     res.status(400).json({
       message: 'El email no es válido'
     });
@@ -157,6 +180,7 @@ app.post('/usuario', (req, res) => {
   //});
 
   collection.insertOne({ name, email, password, monto: 0, tarjeta, movements: []});
+  console.log('User registered');
   res.json({
     message: 'Usuario registrado'
   });
@@ -164,27 +188,36 @@ app.post('/usuario', (req, res) => {
 
 app.get('/usuario', (req, res) => {
   const token = req.headers.authorization;
+  console.log('Token:', token);
   if (!token) {
+    console.log('Unauthorized');
     res.status(401).json({
       message: 'No autorizado'
     });
     return;
   }
   jwt.verify(token, 'secret', (err, decoded) => {
+    console.log('Error:', err);
+    console.log('Decoded:', decoded);
     if (err) {
+      console.log('Invalid token');
       res.status(401).json({
         message: 'Token inválido'
       });
       return;
     }
     const collection = client.db("apibank").collection("usuarios");
+    console.log('Collection:', collection);
     const userExists = collection.findOne({ email: decoded.email });
+    console.log('User exists:', userExists);
     if (!userExists) {
+      console.log('User does not exist');
       res.status(400).json({
         message: 'El usuario no existe'
       });
       return;
     }
+    console.log('User found');
     res.json({
       name: userExists.name,
       email: userExists.email,
@@ -197,27 +230,36 @@ app.get('/usuario', (req, res) => {
 
 app.get('/movimientos', (req, res) => {
   const token = req.headers.authorization;
+  console.log('Token:', token);
   if (!token) {
+    console.log('Unauthorized');
     res.status(401).json({
       message: 'No autorizado'
     });
     return;
   }
   jwt.verify(token, 'secret', (err, decoded) => {
+    console.log('Error:', err);
+    console.log('Decoded:', decoded);
     if (err) {
+      console.log('Invalid token');
       res.status(401).json({
         message: 'Token inválido'
       });
       return;
     }
     const collection = client.db("apibank").collection("usuarios");
+    console.log('Collection:', collection);
     const userExists = collection.findOne({ email: decoded.email });
+    console.log('User exists:', userExists);
     if (!userExists) {
+      console.log('User does not exist');
       res.status(400).json({
         message: 'El usuario no existe'
       });
       return;
     }
+    console.log('User found');
     res.json({
       movements: userExists.movements
     });
@@ -225,8 +267,11 @@ app.get('/movimientos', (req, res) => {
 });
 
 app.post('/recargar', (req, res) => {
-  const { amount, credit_card } = req.body;
+  const { amount, credit_card } = req.query;
+  console.log('Amount:', amount);
+  console.log('Credit card:', credit_card);
   if (amount === undefined || credit_card === undefined) {
+    console.log('Missing data');
     res.status(400).json({
       message: 'Faltan datos'
     });
@@ -234,7 +279,9 @@ app.post('/recargar', (req, res) => {
   }
   const collection = client.db("apibank").collection("usuarios");
   const userExists = collection.findOne({ credit_card: credit_card });
+  console.log('User exists:', userExists);
   if (!userExists) {
+    console.log('User does not exist');
     res.status(400).json({
       message: 'La tarjeta no existe'
     });
@@ -248,14 +295,19 @@ app.post('/recargar', (req, res) => {
     glosa: '-'
   });
   collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, movements: userExists.movements } });
+  console.log('User updated');
   res.json({
     message: 'Recarga exitosa'
   });
 });
 
 app.post('/transferir', (req, res) => {
-  const {email, amount, comment} = req.body;
+  const { email, amount, comment } = req.query;
+  console.log('Email:', email);
+  console.log('Amount:', amount);
+  console.log('Comment:', comment);
   if (email === undefined || amount === undefined || comment === undefined) {
+    console.log('Missing data');
     res.status(400).json({
       message: 'Faltan datos'
     });
@@ -263,20 +315,25 @@ app.post('/transferir', (req, res) => {
   }
   const collection = client.db("apibank").collection("usuarios");
   const userExists = collection.findOne({ email: email });
+  console.log('User exists:', userExists);
   if (!userExists) {
+    console.log('User does not exist');
     res.status(400).json({
       message: 'El usuario no existe'
     });
     return;
   }
   const emailExists = collection.findOne({ email: email });
+  console.log('Email exists:', emailExists);
   if (!emailExists) {
+    console.log('Email does not exist');
     res.status(400).json({
       message: 'El email no existe'
     });
     return;
   }
   if (userExists.amount < amount) {
+    console.log('Insufficient funds');
     res.status(400).json({
       message: 'No tienes saldo suficiente'
     });
@@ -298,16 +355,19 @@ app.post('/transferir', (req, res) => {
   });
   collection.updateOne({ email: email }, { $set: { amount: userExists.amount, movements: userExists.movements } });
   collection.updateOne({ email: emailExists.email }, { $set: { amount: emailExists.amount, movements: emailExists.movements } });
+  console.log('User and email updated');
   res.json({
     message: 'Transferencia exitosa',
     comment: comment
   });
-
 });
 
 app.post('/retirar', (req, res) => {
-  const { amount, credit_card } = req.body;
+  const { amount, credit_card } = req.query;
+  console.log('Amount:', amount);
+  console.log('Credit card:', credit_card);
   if (amount === undefined || credit_card === undefined) {
+    console.log('Missing data');
     res.status(400).json({
       message: 'Faltan datos'
     });
@@ -315,13 +375,16 @@ app.post('/retirar', (req, res) => {
   }
   const collection = client.db("apibank").collection("usuarios");
   const userExists = collection.findOne({ credit_card: credit_card });
+  console.log('User exists:', userExists);
   if (!userExists) {
+    console.log('User does not exist');
     res.status(400).json({
       message: 'La tarjeta no existe'
     });
     return false;
   }
   if (userExists.amount < amount) {
+    console.log('Insufficient funds');
     res.status(400).json({
       message: 'No tienes saldo suficiente'
     });
@@ -335,6 +398,7 @@ app.post('/retirar', (req, res) => {
     comment: '-'
   });
   collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, movements: userExists.movements } });
+  console.log('User updated');
   res.json({
     message: 'Retiro exitoso'
   });
