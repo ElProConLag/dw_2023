@@ -4,37 +4,84 @@ const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = "mongodb+srv://publicGithubAuth:3HQaWMwhAu7MVi4n@devweb.or5phdi.mongodb.net/?retryWrites=true&w=majority";
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+const { MongoClient, ServerApiVersion } = require('mongodb');
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
 });
+async function leerDocumentos() {
+  try {
+    await client.connect();
+    const database = client.db('apibank');
+    const collection = database.collection('usuarios');
 
-async function run() {
-  let attempts = 0;
-  while (attempts < 3) {
-    try {
-      // Connect the client to the server (optional starting in v4.7)
-      await client.connect();
-      // Send a ping to confirm a successful connection
-      await client.db("apibank").command({ ping: 1 });
-      console.log("Pinged your deployment. You successfully connected to MongoDB!");
-      break;
-    } catch (err) {
-      attempts++;
-      console.error(`Error al conectar con la base de datos (intento ${attempts}):`, err);
-      if (attempts >= 3) {
-        console.error('Se han agotado los intentos de conexión');
-        break;
-      }
-      console.log(`Reintentando la conexión en 5 segundos (intento ${attempts + 1})...`);
-      await new Promise(resolve => setTimeout(resolve, 5000));
-    }
+    const documents = await collection.find().toArray();
+    console.log(documents);
+  } finally {
+    await client.close();
+  }
+  
+}
+async function escribirDocumento() {
+  try {
+    await client.connect();
+    const database = client.db('apibank');
+    const collection = database.collection('usuarios');
+
+    const newDocument = {
+      nombre: ' ',
+      apellido: ' ',
+      edad: ' ',
+      saldo: ' ',
+    };
+
+    await collection.insertOne(newDocument);
+  } finally {
+    await client.close();
   }
 }
+
+async function modificarDocumento() {
+  try {
+    await client.connect();
+    const database = client.db('apibank');
+    const collection = database.collection('usuarios');
+
+    const filter = { nombre: ' ' };
+    const update = { $set: { edad: ' ', saldo: ' '} };
+
+    await collection.updateOne(filter, update);
+  } finally {
+    await client.close();
+  }
+}
+async function conectarse(){
+  try {
+    await client.connect();
+    console.log('Conectado con exito');
+    const usuarioscollection = client.db('apibank').collection('usuarios');
+    const usuarios = await usuarioscollection.find().toArray();
+    console.log(usuarios);
+    const nuevoUsuario = { nombre: 'Ejemplo', apellido: 'Usuario' };
+    const resultadoInsert = await usuariosCollection.insertOne(nuevoUsuario);
+    console.log('Documento insertado:', resultadoInsert.insertedId);
+    const filtro = { nombre: 'Ejemplo' };
+    const actualizacion = { $set: { apellido: 'Modificado' } };
+    const resultadoUpdate = await usuariosCollection.updateOne(filtro, actualizacion);
+    console.log('Documento modificado:', resultadoUpdate.modifiedCount);
+
+  }
+  finally{
+    await client.close();
+  }
+}
+leerDocumentos();
+escribirDocumento();
+modificarDocumento();
+conectarse();
 run().catch(console.dir);
 
 const app = express();
