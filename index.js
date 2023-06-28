@@ -4,7 +4,6 @@ const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = "mongodb+srv://publicGithubAuth:3HQaWMwhAu7MVi4n@devweb.or5phdi.mongodb.net/?retryWrites=true&w=majority";
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -14,20 +13,18 @@ const client = new MongoClient(uri, {
 });
 async function leerDocumentos() {
   try {
-    await client.connect();
     const database = client.db('apibank');
     const collection = database.collection('usuarios');
 
     const documents = await collection.find().toArray();
     console.log(documents);
-  } finally {
-    await client.close();
+  } catch (e) {
+    console.log('Error al leer los documentos');
+    console.log(e);
   }
-  
 }
 async function escribirDocumento() {
   try {
-    await client.connect();
     const database = client.db('apibank');
     const collection = database.collection('usuarios');
 
@@ -39,14 +36,14 @@ async function escribirDocumento() {
     };
 
     await collection.insertOne(newDocument);
-  } finally {
-    await client.close();
+  } catch (e) {
+    console.log('Error al escribir el documento');
+    console.log(e);
   }
 }
 
 async function modificarDocumento() {
   try {
-    await client.connect();
     const database = client.db('apibank');
     const collection = database.collection('usuarios');
 
@@ -54,16 +51,17 @@ async function modificarDocumento() {
     const update = { $set: { edad: ' ', saldo: ' '} };
 
     await collection.updateOne(filter, update);
-  } finally {
-    await client.close();
+  } catch (e) {
+    console.log('Error al modificar el documento');
+    console.log(e);
   }
 }
 async function conectarse(){
   try {
     await client.connect();
     console.log('Conectado con exito');
-    const usuarioscollection = client.db('apibank').collection('usuarios');
-    const usuarios = await usuarioscollection.find().toArray();
+    const usuariosCollection = client.db('apibank').collection('usuarios');
+    const usuarios = await usuariosCollection.find().toArray();
     console.log(usuarios);
     const nuevoUsuario = { nombre: 'Ejemplo', apellido: 'Usuario' };
     const resultadoInsert = await usuariosCollection.insertOne(nuevoUsuario);
@@ -74,15 +72,15 @@ async function conectarse(){
     console.log('Documento modificado:', resultadoUpdate.modifiedCount);
 
   }
-  finally{
-    await client.close();
+  catch (e) {
+    console.log('Error al conectarse a la base de datos');
+    console.log(e);
   }
 }
+conectarse();
 leerDocumentos();
 escribirDocumento();
 modificarDocumento();
-conectarse();
-run().catch(console.dir);
 
 const app = express();
 app.use(express.json());
@@ -178,7 +176,7 @@ app.get('/salir', (req, res) => {
   }
 });
 
-app.post('/usuario', (req, res) => {
+app.post('/usuario', async (req, res) => {
   const { name, email, password } = req.query;
   console.log('Name:', name);
   console.log('Email:', email);
@@ -191,7 +189,7 @@ app.post('/usuario', (req, res) => {
     return;
   }
   const collection = client.db("apibank").collection("usuarios");
-  const userExists = collection.findOne({ name: name });
+  const userExists = await collection.findOne({ name: name });
   console.log('User exists:', userExists);
   if (userExists) {
     console.log('User already exists');
@@ -200,7 +198,7 @@ app.post('/usuario', (req, res) => {
     });
     return;
   }
-  const emailExists = collection.findOne({ email: email });
+  const emailExists = await collection.findOne({ email: email });
   console.log('Email exists:', emailExists);
   if (emailExists) {
     console.log('Email already exists');
@@ -225,8 +223,15 @@ app.post('/usuario', (req, res) => {
     //res.status(400).json({
       //message: 'La tarjeta no es válida'
   //});
-
-  db.push({ name, email, password, monto: 0, tarjeta, historial: []});
+  function generateRandomNumber() {
+    let randomNumber = '';
+    for (let i = 0; i < 16; i++) {
+      randomNumber += Math.floor(Math.random() * 10);
+    }
+    return randomNumber;
+  }
+  const credit_card = generateRandomNumber();
+  collection.insertOne({ name, email, password, monto: 0, credit_card, movements: [] });
   res.json({
     message: 'Usuario registrado'
   });
@@ -242,7 +247,7 @@ app.get('/usuario', (req, res) => {
     });
     return;
   }
-  jwt.verify(token, 'secret', (err, decoded) => {
+  jwt.verify(token, 'secret', async (err, decoded) => {
     console.log('Error:', err);
     console.log('Decoded:', decoded);
     if (err) {
@@ -254,7 +259,7 @@ app.get('/usuario', (req, res) => {
     }
     const collection = client.db("apibank").collection("usuarios");
     console.log('Collection:', collection);
-    const userExists = collection.findOne({ email: decoded.email });
+    const userExists = await collection.findOne({ email: decoded.email });
     console.log('User exists:', userExists);
     if (!userExists) {
       console.log('User does not exist');
@@ -284,7 +289,7 @@ app.get('/movimientos', (req, res) => {
     });
     return;
   }
-  jwt.verify(token, 'secret', (err, decoded) => {
+  jwt.verify(token, 'secret', async (err, decoded) => {
     console.log('Error:', err);
     console.log('Decoded:', decoded);
     if (err) {
@@ -296,7 +301,7 @@ app.get('/movimientos', (req, res) => {
     }
     const collection = client.db("apibank").collection("usuarios");
     console.log('Collection:', collection);
-    const userExists = collection.findOne({ email: decoded.email });
+    const userExists = await collection.findOne({ email: decoded.email });
     console.log('User exists:', userExists);
     if (!userExists) {
       console.log('User does not exist');
@@ -312,7 +317,7 @@ app.get('/movimientos', (req, res) => {
   });
 });
 
-app.post('/recargar', (req, res) => {
+app.post('/recargar', async (req, res) => {
   const { amount, credit_card } = req.query;
   console.log('Amount:', amount);
   console.log('Credit card:', credit_card);
@@ -324,7 +329,7 @@ app.post('/recargar', (req, res) => {
     return;
   }
   const collection = client.db("apibank").collection("usuarios");
-  const userExists = collection.findOne({ credit_card: credit_card });
+  const userExists = await collection.findOne({ credit_card: credit_card });
   console.log('User exists:', userExists);
   if (!userExists) {
     console.log('User does not exist');
@@ -340,14 +345,14 @@ app.post('/recargar', (req, res) => {
     usuario: '-',
     glosa: '-'
   });
-  collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, movements: userExists.movements } });
+  await collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, movements: userExists.movements } });
   console.log('User updated');
   res.json({
     message: 'Recarga exitosa'
   });
 });
 
-app.post('/transferir', (req, res) => {
+app.post('/transferir', async (req, res) => {
   const { email, amount, comment } = req.query;
   console.log('Email:', email);
   console.log('Amount:', amount);
@@ -360,7 +365,7 @@ app.post('/transferir', (req, res) => {
     return;
   }
   const collection = client.db("apibank").collection("usuarios");
-  const userExists = collection.findOne({ email: email });
+  const userExists = await collection.findOne({ email: email });
   console.log('User exists:', userExists);
   if (!userExists) {
     console.log('User does not exist');
@@ -369,7 +374,7 @@ app.post('/transferir', (req, res) => {
     });
     return;
   }
-  const emailExists = collection.findOne({ email: email });
+  const emailExists = await collection.findOne({ email: email });
   console.log('Email exists:', emailExists);
   if (!emailExists) {
     console.log('Email does not exist');
@@ -399,8 +404,8 @@ app.post('/transferir', (req, res) => {
     usuario: userExists.email,
     comment: comment
   });
-  collection.updateOne({ email: email }, { $set: { amount: userExists.amount, movements: userExists.movements } });
-  collection.updateOne({ email: emailExists.email }, { $set: { amount: emailExists.amount, movements: emailExists.movements } });
+  await collection.updateOne({ email: email }, { $set: { amount: userExists.amount, movements: userExists.movements } });
+  await collection.updateOne({ email: emailExists.email }, { $set: { amount: emailExists.amount, movements: emailExists.movements } });
   console.log('User and email updated');
   res.json({
     message: 'Transferencia exitosa',
@@ -408,7 +413,7 @@ app.post('/transferir', (req, res) => {
   });
 });
 
-app.post('/retirar', (req, res) => {
+app.post('/retirar', async (req, res) => {
   const { amount, credit_card } = req.query;
   console.log('Amount:', amount);
   console.log('Credit card:', credit_card);
@@ -443,7 +448,7 @@ app.post('/retirar', (req, res) => {
     usuario: '-',
     comment: '-'
   });
-  collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, movements: userExists.movements } });
+  await collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, movements: userExists.movements } });
   console.log('User updated');
   res.json({
     message: 'Retiro exitoso'
