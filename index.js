@@ -103,7 +103,7 @@ app.get('/', (req, res) => {
   });
 });
 
-app.post('/ingresar', (req, res) => {
+app.post('/ingresar', async (req, res) => {
   console.log('Request query:', req.query);
   const { email, password } = req.query;
   console.log('Email:', email);
@@ -116,7 +116,7 @@ app.post('/ingresar', (req, res) => {
     return false;
   }
   const collection = client.db("apibank").collection("usuarios");
-  const userExists = collection.findOne({ email: email });
+  const userExists = await collection.findOne({ email: email });
   console.log('User exists:', userExists);
   if(!userExists) {
     console.log('User does not exist');
@@ -132,9 +132,19 @@ app.post('/ingresar', (req, res) => {
     });
     return false;
   }
-  //make a authentication token below
   const token = jwt.sign({email: userExists.email}, 'secret');
   console.log('Token:', token);
+  const tokensCollection = client.db("apibank").collection("tokens");
+  tokensCollection.insertOne({token: token}, (err, result) => {
+    if (err) {
+      console.log('Error saving token');
+      res.status(500).json({
+        message: 'Error al guardar el token'
+      });
+      return false;
+    }
+    console.log('Token saved');
+  });
   res.json({
     message: 'Ingreso exitoso',
     token: token
@@ -142,38 +152,24 @@ app.post('/ingresar', (req, res) => {
 });
 
 app.get('/salir', (req, res) => {
-  const token = req.headers.authorization;
+  //read token from header, then delete it from 'tokens' collection
+  const token = req.headers['authorization'];
   console.log('Token:', token);
-  if (token) {
-    jwt.verify(token, 'secret', (err, decoded) => {
-      if (err) {
-        console.log('Invalid token');
-        res.status(401).json({
-          message: 'Token inválido'
-        });
-        return;
-      }
-      console.log('Session closed');
-      res.json({
-        message: 'Sesión cerrada'
+  const tokensCollection = client.db("apibank").collection("tokens");
+  tokensCollection.deleteOne({token: token}, (err, result) => {
+    if (err) {
+      console.log('Error deleting token');
+      res.status(500).json({
+        message: 'Error al eliminar el token'
       });
-    });
-  } else {
-    const collection = client.db("apibank").collection("tokens");
-    collection.deleteMany({}, (err, result) => {
-      if (err) {
-        console.log('Error closing session');
-        res.status(500).json({
-          message: 'Error al cerrar la sesión'
-        });
-        return;
-      }
-      console.log('Session closed');
-      res.json({
-        message: 'Sesión cerrada'
-      });
-    });
+      return false;
+    }
+    console.log('Token deleted');
   }
+  );
+  res.json({
+    message: 'Salida exitosa'
+  });
 });
 
 app.post('/usuario', async (req, res) => {
@@ -231,19 +227,29 @@ app.post('/usuario', async (req, res) => {
     return randomNumber;
   }
   const credit_card = generateRandomNumber();
-  collection.insertOne({ name, email, password, monto: 0, credit_card, movements: [] });
+  collection.insertOne({ name, email, password, amount: 0, credit_card, movements: [] });
   res.json({
     message: 'Usuario registrado'
   });
 });
 
-app.get('/usuario', (req, res) => {
+app.get('/usuario', async (req, res) => {
   const token = req.headers.authorization;
   console.log('Token:', token);
   if (!token) {
     console.log('Unauthorized');
     res.status(401).json({
       message: 'No autorizado'
+    });
+    return;
+  }
+  const tokensCollection = client.db("apibank").collection("tokens");
+  const tokenExists = await tokensCollection.findOne({ token: token });
+  console.log('Token exists:', tokenExists);
+  if (!tokenExists) {
+    console.log('Token does not exist');
+    res.status(401).json({
+      message: 'Token no existe'
     });
     return;
   }
@@ -274,18 +280,27 @@ app.get('/usuario', (req, res) => {
       email: userExists.email,
       amount: userExists.amount,
       credit_card: userExists.credit_card,
-      movements: userExists.movements
     });
   });
 });
 
-app.get('/movimientos', (req, res) => {
+app.get('/movimientos', async (req, res) => {
   const token = req.headers.authorization;
   console.log('Token:', token);
   if (!token) {
     console.log('Unauthorized');
     res.status(401).json({
       message: 'No autorizado'
+    });
+    return;
+  }
+  const tokensCollection = client.db("apibank").collection("tokens");
+  const tokenExists = await tokensCollection.findOne({ token: token });
+  console.log('Token exists:', tokenExists);
+  if (!tokenExists) {
+    console.log('Token does not exist');
+    res.status(401).json({
+      message: 'Token no existe'
     });
     return;
   }
@@ -312,43 +327,97 @@ app.get('/movimientos', (req, res) => {
     }
     console.log('User found');
     res.json({
-      movements: userExists.movements
+      movements: userExists.movements,
     });
   });
 });
 
 app.post('/recargar', async (req, res) => {
-  const { amount, credit_card } = req.query;
-  console.log('Amount:', amount);
-  console.log('Credit card:', credit_card);
-  if (amount === undefined || credit_card === undefined) {
-    console.log('Missing data');
-    res.status(400).json({
-      message: 'Faltan datos'
+  //obtain token from headers
+  const token = req.headers.authorization;
+  console.log('Token:', token);
+  if (!token) {
+    console.log('Unauthorized');
+    res.status(401).json({
+      message: 'No autorizado'
     });
     return;
   }
-  const collection = client.db("apibank").collection("usuarios");
-  const userExists = await collection.findOne({ credit_card: credit_card });
-  console.log('User exists:', userExists);
-  if (!userExists) {
-    console.log('User does not exist');
-    res.status(400).json({
-      message: 'La tarjeta no existe'
+  const tokensCollection = client.db("apibank").collection("tokens");
+  const tokenExists = await tokensCollection.findOne({ token: token });
+  console.log('Token exists:', tokenExists);
+  if (!tokenExists) {
+    console.log('Token does not exist');
+    res.status(401).json({
+      message: 'Token no existe'
     });
     return;
   }
-  userExists.amount += amount;
-  userExists.movements.push({
-    movimiento: 'Recarga',
-    amount: amount,
-    usuario: '-',
-    glosa: '-'
-  });
-  await collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, movements: userExists.movements } });
-  console.log('User updated');
-  res.json({
-    message: 'Recarga exitosa'
+  jwt.verify(token, 'secret', async (err, decoded) => {
+    console.log('Error:', err);
+    console.log('Decoded:', decoded);
+    if (err) {
+      console.log('Invalid token');
+      res.status(401).json({
+        message: 'Token inválido'
+      });
+      return;
+    }
+    const collection = client.db("apibank").collection("usuarios");
+    console.log('Collection:', collection);
+    const userExists = await collection.findOne({ email: decoded.email });
+    console.log('User exists:', userExists);
+    if (!userExists) {
+      console.log('User does not exist');
+      res.status(400).json({
+        message: 'El usuario no existe'
+      });
+      return;
+    }
+    console.log('User found');
+    const { amount } = req.query;
+    const movements = userExists.movements;
+    console.log('Amount:', amount);
+    if (amount === undefined) {
+      console.log('Missing data');
+      res.status(400).json({
+        message: 'Faltan datos'
+      });
+      return;
+    }
+    const { credit_card } = userExists.credit_card;
+    console.log('Credit card:', credit_card);
+    if (credit_card === undefined) {
+      console.log('Missing credit card');
+      res.status(400).json({
+        message: 'Falta tarjeta de crédito'
+      });
+      return;
+    }
+    if(credit_card === userExists.credit_card) {
+      console.log('Credit card is from same account');
+      res.status(400).json({
+        message: 'No puedes usar la misma tarjeta de crédito, usa otra'
+      });
+      return;
+    }
+    const newAmount = parseInt(userExists.amount) + parseInt(amount);
+    const newMovement = {
+      amount: newAmount,
+      email: decoded.email,
+      comment: 'Recarga',
+    };
+    console.log('New amount:', newAmount);
+    const result = await collection.updateOne(
+      { email: decoded.email },
+      { $set: { amount: newAmount } },
+      //add movement to movements array
+      { $push: { movements: newMovement } }
+    );
+    console.log('Result:', result);
+    res.json({
+      message: 'Recarga exitosa'
+    });
   });
 });
 
