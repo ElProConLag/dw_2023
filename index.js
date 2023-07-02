@@ -60,17 +60,6 @@ async function conectarse(){
   try {
     await client.connect();
     console.log('Conectado con exito');
-    const usuariosCollection = client.db('apibank').collection('usuarios');
-    const usuarios = await usuariosCollection.find().toArray();
-    console.log(usuarios);
-    const nuevoUsuario = { nombre: 'Ejemplo', apellido: 'Usuario' };
-    const resultadoInsert = await usuariosCollection.insertOne(nuevoUsuario);
-    console.log('Documento insertado:', resultadoInsert.insertedId);
-    const filtro = { nombre: 'Ejemplo' };
-    const actualizacion = { $set: { apellido: 'Modificado' } };
-    const resultadoUpdate = await usuariosCollection.updateOne(filtro, actualizacion);
-    console.log('Documento modificado:', resultadoUpdate.modifiedCount);
-
   }
   catch (e) {
     console.log('Error al conectarse a la base de datos');
@@ -78,9 +67,6 @@ async function conectarse(){
   }
 }
 conectarse();
-leerDocumentos();
-escribirDocumento();
-modificarDocumento();
 
 const app = express();
 app.use(express.json());
@@ -385,7 +371,7 @@ app.post('/recargar', async (req, res) => {
       });
       return;
     }
-    const { credit_card } = userExists.credit_card;
+    const { credit_card } = req.query;
     console.log('Credit card:', credit_card);
     if (credit_card === undefined) {
       console.log('Missing credit card');
@@ -403,16 +389,14 @@ app.post('/recargar', async (req, res) => {
     }
     const newAmount = parseInt(userExists.amount) + parseInt(amount);
     const newMovement = {
-      amount: newAmount,
+      amount: parseInt(amount),
       email: decoded.email,
       comment: 'Recarga',
     };
     console.log('New amount:', newAmount);
     const result = await collection.updateOne(
       { email: decoded.email },
-      { $set: { amount: newAmount } },
-      //add movement to movements array
-      { $push: { movements: newMovement } }
+      { $set: { amount: newAmount }, $push: { movements: newMovement } }
     );
     console.log('Result:', result);
     res.json({
@@ -422,107 +406,219 @@ app.post('/recargar', async (req, res) => {
 });
 
 app.post('/transferir', async (req, res) => {
-  const { email, amount, comment } = req.query;
-  console.log('Email:', email);
-  console.log('Amount:', amount);
-  console.log('Comment:', comment);
-  if (email === undefined || amount === undefined || comment === undefined) {
-    console.log('Missing data');
-    res.status(400).json({
-      message: 'Faltan datos'
+  const token = req.headers.authorization;
+  console.log('Token:', token);
+  if (!token) {
+    console.log('Unauthorized');
+    res.status(401).json({
+      message: 'No autorizado'
     });
     return;
   }
-  const collection = client.db("apibank").collection("usuarios");
-  const userExists = await collection.findOne({ email: email });
-  console.log('User exists:', userExists);
-  if (!userExists) {
-    console.log('User does not exist');
-    res.status(400).json({
-      message: 'El usuario no existe'
+  const tokensCollection = client.db("apibank").collection("tokens");
+  const tokenExists = await tokensCollection.findOne({ token: token });
+  console.log('Token exists:', tokenExists);
+  if (!tokenExists) {
+    console.log('Token does not exist');
+    res.status(401).json({
+      message: 'Token no existe'
     });
     return;
   }
-  const emailExists = await collection.findOne({ email: email });
-  console.log('Email exists:', emailExists);
-  if (!emailExists) {
-    console.log('Email does not exist');
-    res.status(400).json({
-      message: 'El email no existe'
+  jwt.verify(token, 'secret', async (err, decoded) => {
+    console.log('Error:', err);
+    console.log('Decoded:', decoded);
+    if (err) {
+      console.log('Invalid token');
+      res.status(401).json({
+        message: 'Token inválido'
+      });
+      return;
+    }
+    const collection = client.db("apibank").collection("usuarios");
+    console.log('Collection:', collection);
+    const userFromExists = await collection.findOne({ email: decoded.email });
+    if (!userFromExists) {
+      console.log('User does not exist');
+      res.status(400).json({
+        message: 'El usuario origen no existe'
+      });
+      return;
+    }
+    const { email, amount, comment } = req.query;
+    console.log('Email:', email);
+    console.log('Amount:', amount);
+    console.log('Comment:', comment);
+    if (email === undefined || amount === undefined || comment === undefined) {
+      console.log('Missing data');
+      res.status(400).json({
+        message: 'Faltan datos'
+      });
+      return;
+    }
+    if (email === decoded.email) {
+      console.log('Cannot transfer to same account');
+      res.status(400).json({
+        message: 'No puedes transferir a la misma cuenta'
+      });
+      return;
+    }
+    if (amount > userFromExists.amount) {
+      console.log('Insufficient funds');
+      res.status(400).json({
+        message: 'Fondos insuficientes'
+      });
+      return;
+    }
+    if (amount <= 0) {
+      console.log('Invalid amount');
+      res.status(400).json({
+        message: 'Monto inválido'
+      });
+      return;
+    }
+    if (comment.length > 100) {
+      console.log('Comment too long');
+      res.status(400).json({
+        message: 'Comentario muy largo'
+      });
+      return;
+    }
+    const userToExists = await collection.findOne({ email: email });
+    console.log('User to exists:', userToExists);
+    if (!userToExists) {
+      console.log('User does not exist');
+      res.status(400).json({
+        message: 'El usuario destino no existe'
+      });
+      return;
+    }
+    // Transfer from userFrom to userTo
+    const newAmountFrom = parseInt(userFromExists.amount) - parseInt(amount);
+    const newMovementFrom = {
+      amount: parseInt(amount),
+      email: email,
+      comment: comment,
+    };
+    console.log('New amount from:', newAmountFrom);
+    const resultFrom = await collection.updateOne(
+      { email: decoded.email },
+      { $set: { amount: newAmountFrom }, $push: { movements: newMovementFrom } }
+    );
+    console.log('Result from:', resultFrom);
+    const newAmountTo = parseInt(userToExists.amount) + parseInt(amount);
+    const newMovementTo = {
+      amount: parseInt(amount),
+      email: decoded.email,
+      comment: comment,
+    };
+    console.log('New amount to:', newAmountTo);
+    const resultTo = await collection.updateOne(
+      { email: email },
+      { $set: { amount: newAmountTo }, $push: { movements: newMovementTo } }
+    );
+    console.log('Result to:', resultTo);
+    res.json({
+      message: 'Transferencia exitosa'
     });
-    return;
-  }
-  if (userExists.amount < amount) {
-    console.log('Insufficient funds');
-    res.status(400).json({
-      message: 'No tienes saldo suficiente'
-    });
-    return;
-  }
-  userExists.amount -= amount;
-  emailExists.amount += amount;
-  userExists.movements.push({
-    movimiento: 'Envío dinero',
-    amount: amount,
-    usuario: emailExists.email,
-    comment: comment
-  });
-  emailExists.movements.push({
-    movimiento: 'Dinero recibido',
-    amount: amount,
-    usuario: userExists.email,
-    comment: comment
-  });
-  await collection.updateOne({ email: email }, { $set: { amount: userExists.amount, movements: userExists.movements } });
-  await collection.updateOne({ email: emailExists.email }, { $set: { amount: emailExists.amount, movements: emailExists.movements } });
-  console.log('User and email updated');
-  res.json({
-    message: 'Transferencia exitosa',
-    comment: comment
   });
 });
 
 app.post('/retirar', async (req, res) => {
-  const { amount, credit_card } = req.query;
-  console.log('Amount:', amount);
-  console.log('Credit card:', credit_card);
-  if (amount === undefined || credit_card === undefined) {
-    console.log('Missing data');
-    res.status(400).json({
-      message: 'Faltan datos'
+  const token = req.headers.authorization;
+  console.log('Token:', token);
+  if (!token) {
+    console.log('Unauthorized');
+    res.status(401).json({
+      message: 'No autorizado'
     });
-    return false;
+    return;
   }
-  const collection = client.db("apibank").collection("usuarios");
-  const userExists = collection.findOne({ credit_card: credit_card });
-  console.log('User exists:', userExists);
-  if (!userExists) {
-    console.log('User does not exist');
-    res.status(400).json({
-      message: 'La tarjeta no existe'
+  const tokensCollection = client.db("apibank").collection("tokens");
+  const tokenExists = await tokensCollection.findOne({ token: token });
+  console.log('Token exists:', tokenExists);
+  if (!tokenExists) {
+    console.log('Token does not exist');
+    res.status(401).json({
+      message: 'Token no existe'
     });
-    return false;
+    return;
   }
-  if (userExists.amount < amount) {
-    console.log('Insufficient funds');
-    res.status(400).json({
-      message: 'No tienes saldo suficiente'
+  jwt.verify(token, 'secret', async (err, decoded) => {
+    console.log('Error:', err);
+    console.log('Decoded:', decoded);
+    if (err) {
+      console.log('Invalid token');
+      res.status(401).json({
+        message: 'Token inválido'
+      });
+      return;
+    }
+    const collection = client.db("apibank").collection("usuarios");
+    console.log('Collection:', collection);
+    const userExists = await collection.findOne({ email: decoded.email });
+    if (!userExists) {
+      console.log('User does not exist');
+      res.status(400).json({
+        message: 'El usuario no existe'
+      });
+      return;
+    }
+    const { amount, credit_card } = req.query;
+    console.log('Amount:', amount);
+    console.log('Credit card:', credit_card);
+    if (amount === undefined || credit_card === undefined) {
+      console.log('Missing data');
+      res.status(400).json({
+        message: 'Faltan datos'
+      });
+      return;
+    }
+    if (amount > userExists.amount) {
+      console.log('Insufficient funds');
+      res.status(400).json({
+        message: 'Fondos insuficientes'
+      });
+      return;
+    }
+    if (amount <= 0) {
+      console.log('Invalid amount');
+      res.status(400).json({
+        message: 'Monto inválido'
+      });
+      return;
+    }
+    if (credit_card.length !== 16) {
+      console.log('Invalid credit card');
+      res.status(400).json({
+        message: 'Tarjeta inválida, debe tener 16 dígitos'
+      });
+      return;
+    }
+    if(credit_card !== userExists.credit_card){
+      console.log('Invalid credit card');
+      res.status(400).json({
+        message: 'Tarjeta inválida, no coincide con la registrada'
+      });
+      return;
+    }
+    const newAmount = parseInt(userExists.amount) - parseInt(amount);
+    const newMovement = {
+      amount: parseInt(amount),
+      email: decoded.email,
+      comment: 'Retiro en cajero',
+    };
+    console.log('New amount:', newAmount);
+    const result = await collection.updateOne(
+      { email: decoded.email },
+      { $set: { amount: newAmount }, $push: { movements: newMovement } }
+    );
+    console.log('Result:', result);
+    res.json({
+      message: 'Retiro exitoso'
     });
-    return false;
-  }
-  userExists.amount -= amount;
-  userExists.movements.push({
-    movimiento: 'Retiro',
-    amount: amount,
-    usuario: '-',
-    comment: '-'
-  });
-  await collection.updateOne({ credit_card: credit_card }, { $set: { amount: userExists.amount, movements: userExists.movements } });
-  console.log('User updated');
-  res.json({
-    message: 'Retiro exitoso'
   });
 });
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
+app.listen(80, () => {
+  console.log('Server is running on port 80');
 });
