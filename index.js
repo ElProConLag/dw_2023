@@ -101,11 +101,12 @@ app.post('/ingresar', async (req, res) => {
   
   function hidePassword(password) {
     let hiddenPassword = '';
-    for (let i = 0; i < password.length; i++) {
+    for (let i = 0; i < password.toString().length; i++) {
       hiddenPassword += '*';
     }
     return hiddenPassword;
   }
+  
   
   if (email === undefined || password === undefined) {
     console.log('Missing data');
@@ -135,8 +136,11 @@ app.post('/ingresar', async (req, res) => {
     return;
   }
   
-  const token = jwt.sign({ email: userExists.email }, 'secret');
+  const jwtSecret = process.env.JWT_SECRET;
+
+  const token = jwt.sign({ email: userExists.email }, jwtSecret);
   console.log('Token:', token);
+  
   
   const tokensCollection = client.db("apibank").collection("tokens");
   tokensCollection.insertOne({ token: token }, (err, result) => {
@@ -506,13 +510,14 @@ app.post('/transferir', async (req, res) => {
       return;
     }
     
-    if (comment.length > 100) {
+    if (typeof comment !== 'string' || comment.length > 100) {
       console.log('Comment too long');
       res.status(400).json({
         message: 'Comentario muy largo'
       });
       return;
     }
+    
     
     const userToExists = await collection.findOne({ email: email });
     console.log('User to exists:', userToExists);
@@ -629,7 +634,7 @@ app.post('/retirar', async (req, res) => {
       return;
     }
     
-    if (credit_card.length !== 16) {
+    if (typeof credit_card !== 'string' || credit_card.length !== 16) {
       console.log('Invalid credit card');
       res.status(400).json({
         message: 'Tarjeta inválida, debe tener 16 dígitos'
