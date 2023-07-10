@@ -75,7 +75,7 @@ app.use(limiter);
 const app = express();
 app.use(express.json());
 
-app.get('/', (_req, res) => {
+app.get('/', limiter, (_req, res) => {
   const collection = client.db("apibank").collection("usuarios");
   console.log('Collection:', collection);
   collection.find({}).toArray((err, result) => {
