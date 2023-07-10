@@ -93,6 +93,7 @@ app.get('/', (_req, res) => {
 
 
 app.post('/ingresar', async (req, res) => {
+  app.use(limiter);
   console.log('Request query:', req.query);
   const email = req.query.email;
   const password = req.query.password;
@@ -163,6 +164,7 @@ app.post('/ingresar', async (req, res) => {
 
 
 app.get('/salir', (req, res) => {
+  app.use(limiter);
   //read token from header, then delete it from 'tokens' collection
   const token = req.headers['authorization'];
   console.log('Token:', token);
@@ -184,6 +186,7 @@ app.get('/salir', (req, res) => {
 });
 
 app.post('/usuario', async (req, res) => {
+  app.use(limiter);
   const { name, email, password } = req.query;
   console.log('Name:', name);
   console.log('Email:', email);
@@ -245,6 +248,7 @@ app.post('/usuario', async (req, res) => {
 });
 
 app.get('/usuario', async (req, res) => {
+  app.use(limiter);
   const token = req.headers.authorization;
   console.log('Token:', token);
   if (!token) {
@@ -344,6 +348,7 @@ app.get('/movimientos', async (req, res) => {
 });
 
 app.post('/recargar', async (req, res) => {
+  app.use(limiter);
   //obtain token from headers
   const token = req.headers.authorization;
   console.log('Token:', token);
@@ -431,6 +436,7 @@ app.post('/recargar', async (req, res) => {
 });
 
 app.post('/transferir', async (req, res) => {
+  app.use(limiter);
   const token = req.headers.authorization;
   console.log('Token:', token);
   if (!token) {
@@ -510,14 +516,14 @@ app.post('/transferir', async (req, res) => {
       return;
     }
     
-    if (typeof comment !== 'string' || comment.length > 100) {
-      console.log('Comment too long');
-      res.status(400).json({
-        message: 'Comentario muy largo'
-      });
-      return;
-    }
-    
+   if (typeof comment !== 'string' || comment.length > 100) {
+  console.log('Comment too long');
+  res.status(400).json({
+    message: 'Comentario muy largo'
+  });
+  return;
+}
+
     
     const userToExists = await collection.findOne({ email: email });
     console.log('User to exists:', userToExists);
@@ -564,6 +570,7 @@ app.post('/transferir', async (req, res) => {
 
 
 app.post('/retirar', async (req, res) => {
+  app.use(limiter);
   const token = req.headers.authorization;
   console.log('Token:', token);
   if (!token) {
