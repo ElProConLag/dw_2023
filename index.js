@@ -4,8 +4,8 @@ const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = "mongodb+srv://publicGithubAuth:3HQaWMwhAu7MVi4n@devweb.or5phdi.mongodb.net/?retryWrites=true&w=majority";
 const limiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
+  windowMs: 60 * 1000, //1 minuto de duración como maximo
+  max: 5, //5 peticiones como maximo a la vez
 });
 const client = new MongoClient(uri, {
   serverApi: {
@@ -92,19 +92,21 @@ app.get('/', (_req, res) => {
 });
 
 
-app.post('/ingresar',async (req, res) => {
+app.post('/ingresar', async (req, res) => {
   console.log('Request query:', req.query);
   const email = req.query.email;
   const password = req.query.password;
   console.log('Email:', email);
-  console.log('Password:', HidePassword(password));
-  function HidePassword(password) {
-    var hiddenPassword = '';
-    for (var i = 0; i < password.length; i++) {
+  console.log('Password:', hidePassword(password));
+  
+  function hidePassword(password) {
+    let hiddenPassword = '';
+    for (let i = 0; i < password.length; i++) {
       hiddenPassword += '*';
     }
     return hiddenPassword;
   }
+  
   if (email === undefined || password === undefined) {
     console.log('Missing data');
     res.status(400).json({
@@ -112,9 +114,11 @@ app.post('/ingresar',async (req, res) => {
     });
     return;
   }
+  
   const collection = client.db("apibank").collection("usuarios");
   const userExists = await collection.findOne({ email: email });
   console.log('User exists:', userExists);
+  
   if (!userExists) {
     console.log('User does not exist');
     res.status(400).json({
@@ -122,6 +126,7 @@ app.post('/ingresar',async (req, res) => {
     });
     return;
   }
+  
   if (userExists.password !== password) {
     console.log('Incorrect password');
     res.status(400).json({
@@ -129,8 +134,10 @@ app.post('/ingresar',async (req, res) => {
     });
     return;
   }
+  
   const token = jwt.sign({ email: userExists.email }, 'secret');
   console.log('Token:', token);
+  
   const tokensCollection = client.db("apibank").collection("tokens");
   tokensCollection.insertOne({ token: token }, (err, result) => {
     if (err) {
@@ -142,11 +149,13 @@ app.post('/ingresar',async (req, res) => {
     }
     console.log('Token saved');
   });
+  
   res.json({
     message: 'Ingreso exitoso',
     token: token
   });
 });
+
 
 
 app.get('/salir', (req, res) => {
@@ -427,6 +436,7 @@ app.post('/transferir', async (req, res) => {
     });
     return;
   }
+  
   const tokensCollection = client.db("apibank").collection("tokens");
   const tokenExists = await tokensCollection.findOne({ token: token });
   console.log('Token exists:', tokenExists);
@@ -437,6 +447,7 @@ app.post('/transferir', async (req, res) => {
     });
     return;
   }
+  
   jwt.verify(token, 'secret', async (err, decoded) => {
     console.log('Error:', err);
     console.log('Decoded:', decoded);
@@ -447,6 +458,7 @@ app.post('/transferir', async (req, res) => {
       });
       return;
     }
+    
     const collection = client.db("apibank").collection("usuarios");
     console.log('Collection:', collection);
     const userFromExists = await collection.findOne({ email: decoded.email });
@@ -457,6 +469,7 @@ app.post('/transferir', async (req, res) => {
       });
       return;
     }
+    
     const { email, amount, comment } = req.query;
     console.log('Email:', email);
     console.log('Amount:', amount);
@@ -468,6 +481,7 @@ app.post('/transferir', async (req, res) => {
       });
       return;
     }
+    
     if (email === decoded.email) {
       console.log('Cannot transfer to same account');
       res.status(400).json({
@@ -475,20 +489,23 @@ app.post('/transferir', async (req, res) => {
       });
       return;
     }
-    if (amount > userFromExists.amount) {
+    
+    if (parseInt(amount) > userFromExists.amount) {
       console.log('Insufficient funds');
       res.status(400).json({
         message: 'Fondos insuficientes'
       });
       return;
     }
-    if (amount <= 0) {
+    
+    if (parseInt(amount) <= 0) {
       console.log('Invalid amount');
       res.status(400).json({
         message: 'Monto inválido'
       });
       return;
     }
+    
     if (comment.length > 100) {
       console.log('Comment too long');
       res.status(400).json({
@@ -496,6 +513,7 @@ app.post('/transferir', async (req, res) => {
       });
       return;
     }
+    
     const userToExists = await collection.findOne({ email: email });
     console.log('User to exists:', userToExists);
     if (!userToExists) {
@@ -505,12 +523,13 @@ app.post('/transferir', async (req, res) => {
       });
       return;
     }
+    
     // Transfer from userFrom to userTo
-    const newAmountFrom = parseInt(userFromExists.amount) - parseInt(amount);
+    const newAmountFrom = userFromExists.amount - parseInt(amount);
     const newMovementFrom = {
       amount: parseInt(amount),
       email: email,
-      comment: comment,
+      comment: comment
     };
     console.log('New amount from:', newAmountFrom);
     const resultFrom = await collection.updateOne(
@@ -518,11 +537,12 @@ app.post('/transferir', async (req, res) => {
       { $set: { amount: newAmountFrom }, $push: { movements: newMovementFrom } }
     );
     console.log('Result from:', resultFrom);
-    const newAmountTo = parseInt(userToExists.amount) + parseInt(amount);
+    
+    const newAmountTo = userToExists.amount + parseInt(amount);
     const newMovementTo = {
       amount: parseInt(amount),
       email: decoded.email,
-      comment: comment,
+      comment: comment
     };
     console.log('New amount to:', newAmountTo);
     const resultTo = await collection.updateOne(
@@ -530,11 +550,13 @@ app.post('/transferir', async (req, res) => {
       { $set: { amount: newAmountTo }, $push: { movements: newMovementTo } }
     );
     console.log('Result to:', resultTo);
+    
     res.json({
       message: 'Transferencia exitosa'
     });
   });
 });
+
 
 app.post('/retirar', async (req, res) => {
   const token = req.headers.authorization;
@@ -546,6 +568,7 @@ app.post('/retirar', async (req, res) => {
     });
     return;
   }
+  
   const tokensCollection = client.db("apibank").collection("tokens");
   const tokenExists = await tokensCollection.findOne({ token: token });
   console.log('Token exists:', tokenExists);
@@ -556,6 +579,7 @@ app.post('/retirar', async (req, res) => {
     });
     return;
   }
+  
   jwt.verify(token, 'secret', async (err, decoded) => {
     console.log('Error:', err);
     console.log('Decoded:', decoded);
@@ -566,6 +590,7 @@ app.post('/retirar', async (req, res) => {
       });
       return;
     }
+    
     const collection = client.db("apibank").collection("usuarios");
     console.log('Collection:', collection);
     const userExists = await collection.findOne({ email: decoded.email });
@@ -576,6 +601,7 @@ app.post('/retirar', async (req, res) => {
       });
       return;
     }
+    
     const { amount, credit_card } = req.query;
     console.log('Amount:', amount);
     console.log('Credit card:', credit_card);
@@ -586,20 +612,23 @@ app.post('/retirar', async (req, res) => {
       });
       return;
     }
-    if (amount > userExists.amount) {
+    
+    if (parseInt(amount) > userExists.amount) {
       console.log('Insufficient funds');
       res.status(400).json({
         message: 'Fondos insuficientes'
       });
       return;
     }
-    if (amount <= 0) {
+    
+    if (parseInt(amount) <= 0) {
       console.log('Invalid amount');
       res.status(400).json({
         message: 'Monto inválido'
       });
       return;
     }
+    
     if (credit_card.length !== 16) {
       console.log('Invalid credit card');
       res.status(400).json({
@@ -607,30 +636,35 @@ app.post('/retirar', async (req, res) => {
       });
       return;
     }
-    if(credit_card !== userExists.credit_card){
+    
+    if (credit_card !== userExists.credit_card) {
       console.log('Invalid credit card');
       res.status(400).json({
         message: 'Tarjeta inválida, no coincide con la registrada'
       });
       return;
     }
-    const newAmount = parseInt(userExists.amount) - parseInt(amount);
+    
+    const newAmount = userExists.amount - parseInt(amount);
     const newMovement = {
       amount: parseInt(amount),
       email: decoded.email,
-      comment: 'Retiro en cajero',
+      comment: 'Retiro en cajero'
     };
     console.log('New amount:', newAmount);
+    
     const result = await collection.updateOne(
       { email: decoded.email },
       { $set: { amount: newAmount }, $push: { movements: newMovement } }
     );
     console.log('Result:', result);
+    
     res.json({
       message: 'Retiro exitoso'
     });
   });
 });
+
 app.listen(80, () => {
   console.log('Server is running on port 80');
 });
