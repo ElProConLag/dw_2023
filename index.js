@@ -3,7 +3,10 @@ const jwt = require('jsonwebtoken');
 
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = "mongodb+srv://publicGithubAuth:3HQaWMwhAu7MVi4n@devweb.or5phdi.mongodb.net/?retryWrites=true&w=majority";
-
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+});
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -67,67 +70,75 @@ async function conectarse(){
   }
 }
 conectarse();
-
+app.use(limiter);
 const app = express();
 app.use(express.json());
 
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   const collection = client.db("apibank").collection("usuarios");
   console.log('Collection:', collection);
   collection.find({}).toArray((err, result) => {
-    console.log('Error:', err);
-    console.log('Result:', result);
     if (err) {
-      console.log('Database error');
+      console.log('Error de la base de datos:', err);
       res.status(500).json({
         message: 'Error al obtener la base de datos'
       });
-      return false;
+      return;
     }
-    console.log('Database result');
+
+    console.log('Resultado de la base de datos:', result);
     res.json(result);
   });
 });
 
-app.post('/ingresar', async (req, res) => {
+
+app.post('/ingresar',async (req, res) => {
   console.log('Request query:', req.query);
-  const { email, password } = req.query;
+  const email = req.query.email;
+  const password = req.query.password;
   console.log('Email:', email);
-  console.log('Password:', password);
+  console.log('Password:', HidePassword(password));
+  function HidePassword(password) {
+    var hiddenPassword = '';
+    for (var i = 0; i < password.length; i++) {
+      hiddenPassword += '*';
+    }
+    return hiddenPassword;
+  }
   if (email === undefined || password === undefined) {
     console.log('Missing data');
     res.status(400).json({
       message: 'Faltan datos'
     });
-    return false;
+    return;
   }
   const collection = client.db("apibank").collection("usuarios");
   const userExists = await collection.findOne({ email: email });
   console.log('User exists:', userExists);
-  if(!userExists) {
+  if (!userExists) {
     console.log('User does not exist');
     res.status(400).json({
       message: 'El usuario no existe'
     });
-    return false;
+    return;
   }
-  if(userExists.password !== password) {
+  if (userExists.password !== password) {
     console.log('Incorrect password');
     res.status(400).json({
       message: 'La contraseña es incorrecta'
     });
-    return false;
+    return;
   }
-  const token = jwt.sign({email: userExists.email}, 'secret');
+  const token = jwt.sign({ email: userExists.email }, 'secret');
   console.log('Token:', token);
   const tokensCollection = client.db("apibank").collection("tokens");
-  tokensCollection.insertOne({token: token}, (err, result) => {
+  tokensCollection.insertOne({ token: token }, (err, result) => {
     if (err) {
       console.log('Error saving token');
       res.status(500).json({
         message: 'Error al guardar el token'
       });
-      return false;
+      return;
     }
     console.log('Token saved');
   });
@@ -136,6 +147,7 @@ app.post('/ingresar', async (req, res) => {
     token: token
   });
 });
+
 
 app.get('/salir', (req, res) => {
   //read token from header, then delete it from 'tokens' collection
