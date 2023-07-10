@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = "mongodb+srv://publicGithubAuth:3HQaWMwhAu7MVi4n@devweb.or5phdi.mongodb.net/?retryWrites=true&w=majority";
@@ -74,7 +75,7 @@ app.use(limiter);
 const app = express();
 app.use(express.json());
 
-app.get('/', limiter, (_req, res) => {
+app.get('/', (_req, res) => {
   const collection = client.db("apibank").collection("usuarios");
   console.log('Collection:', collection);
   collection.find({}).toArray((err, result) => {
@@ -93,7 +94,6 @@ app.get('/', limiter, (_req, res) => {
 
 
 app.post('/ingresar',limiter, async (req, res) => {
-  app.use(limiter);
   console.log('Request query:', req.query);
   const email = req.query.email;
   const password = req.query.password;
