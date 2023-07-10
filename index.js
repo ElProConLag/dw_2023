@@ -74,7 +74,7 @@ app.use(limiter);
 const app = express();
 app.use(express.json());
 
-app.get('/', (_req, res) => {
+app.get('/', limiter, (_req, res) => {
   const collection = client.db("apibank").collection("usuarios");
   console.log('Collection:', collection);
   collection.find({}).toArray((err, result) => {
@@ -92,7 +92,7 @@ app.get('/', (_req, res) => {
 });
 
 
-app.post('/ingresar', async (req, res) => {
+app.post('/ingresar',limiter, async (req, res) => {
   app.use(limiter);
   console.log('Request query:', req.query);
   const email = req.query.email;
@@ -163,8 +163,7 @@ app.post('/ingresar', async (req, res) => {
 
 
 
-app.get('/salir', (req, res) => {
-  app.use(limiter);
+app.get('/salir', limiter, (req, res) => {
   //read token from header, then delete it from 'tokens' collection
   const token = req.headers['authorization'];
   console.log('Token:', token);
@@ -185,8 +184,7 @@ app.get('/salir', (req, res) => {
   });
 });
 
-app.post('/usuario', async (req, res) => {
-  app.use(limiter);
+app.post('/usuario', limiter, async (req, res) => {
   const { name, email, password } = req.query;
   console.log('Name:', name);
   console.log('Email:', email);
@@ -247,7 +245,7 @@ app.post('/usuario', async (req, res) => {
   });
 });
 
-app.get('/usuario', async (req, res) => {
+app.get('/usuario', limiter, async (req, res) => {
   app.use(limiter);
   const token = req.headers.authorization;
   console.log('Token:', token);
@@ -299,7 +297,7 @@ app.get('/usuario', async (req, res) => {
   });
 });
 
-app.get('/movimientos', async (req, res) => {
+app.get('/movimientos', limiter, async (req, res) => {
   const token = req.headers.authorization;
   console.log('Token:', token);
   if (!token) {
@@ -347,7 +345,7 @@ app.get('/movimientos', async (req, res) => {
   });
 });
 
-app.post('/recargar', async (req, res) => {
+app.post('/recargar', limiter, async (req, res) => {
   app.use(limiter);
   //obtain token from headers
   const token = req.headers.authorization;
@@ -435,8 +433,7 @@ app.post('/recargar', async (req, res) => {
   });
 });
 
-app.post('/transferir', async (req, res) => {
-  app.use(limiter);
+app.post('/transferir', limiter, async (req, res) => {
   const token = req.headers.authorization;
   console.log('Token:', token);
   if (!token) {
@@ -569,8 +566,7 @@ app.post('/transferir', async (req, res) => {
 });
 
 
-app.post('/retirar', async (req, res) => {
-  app.use(limiter);
+app.post('/retirar', limiter, async (req, res) => {
   const token = req.headers.authorization;
   console.log('Token:', token);
   if (!token) {
