@@ -73,6 +73,9 @@ app.use(express.json());
 
 app.get('/', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
   const collection = client.db("apibank").collection("usuarios");
   console.log('Collection:', collection);
   collection.find({}).toArray((err, result) => {
@@ -92,6 +95,9 @@ app.get('/', (req, res) => {
 
 app.post('/ingresar', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
   console.log('Request query:', req.query);
   const { email, password } = req.query;
   console.log('Email:', email);
@@ -141,6 +147,9 @@ app.post('/ingresar', async (req, res) => {
 
 app.get('/salir', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
   //read token from header, then delete it from 'tokens' collection
   const token = req.headers['authorization'];
   console.log('Token:', token);
@@ -163,6 +172,9 @@ app.get('/salir', (req, res) => {
 
 app.post('/usuario', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
   const { name, email, password } = req.query;
   console.log('Name:', name);
   console.log('Email:', email);
@@ -225,6 +237,9 @@ app.post('/usuario', async (req, res) => {
 
 app.get('/usuario', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
   const token = req.headers.authorization;
   console.log('Token:', token);
   if (!token) {
@@ -277,6 +292,9 @@ app.get('/usuario', async (req, res) => {
 
 app.get('/movimientos', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
   const token = req.headers.authorization;
   console.log('Token:', token);
   if (!token) {
@@ -326,6 +344,9 @@ app.get('/movimientos', async (req, res) => {
 
 app.post('/recargar', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
   //obtain token from headers
   const token = req.headers.authorization;
   console.log('Token:', token);
@@ -414,6 +435,9 @@ app.post('/recargar', async (req, res) => {
 
 app.post('/transferir', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
   const token = req.headers.authorization;
   console.log('Token:', token);
   if (!token) {
@@ -534,6 +558,9 @@ app.post('/transferir', async (req, res) => {
 
 app.post('/retirar', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
   const token = req.headers.authorization;
   console.log('Token:', token);
   if (!token) {
