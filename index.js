@@ -201,7 +201,7 @@ app.post('/usuario', async (req, res) => {
     });
     return;
   }
-  const emailExists = await collection.findOne({ email: email });
+  const emailExists = await collection.findOne({ email: { $eq: email } });
   console.log('Email exists:', emailExists);
   if (emailExists) {
     console.log('Email already exists');
