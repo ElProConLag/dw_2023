@@ -188,7 +188,7 @@ app.post('/usuario', async (req, res) => {
   const { name, email, password } = req.query;
   console.log('Name:', name);
   console.log('Email:', email);
-  console.log('Password:', password);
+  console.log('Password received');
   if (name === undefined || email === undefined || password === undefined) {
     console.log('Missing data');
     res.status(400).json({
