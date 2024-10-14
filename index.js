@@ -231,12 +231,14 @@ app.post('/usuario', async (req, res) => {
     //res.status(400).json({
       //message: 'La tarjeta no es válida'
   //});
+  const crypto = require('crypto');
   function generateRandomNumber() {
+    const randomBytes = crypto.randomBytes(8); // 8 bytes = 64 bits
     let randomNumber = '';
-    for (let i = 0; i < 16; i++) {
-      randomNumber += Math.floor(Math.random() * 10);
+    for (let i = 0; i < randomBytes.length; i++) {
+      randomNumber += ('0' + randomBytes[i].toString(10)).slice(-2);
     }
-    return randomNumber;
+    return randomNumber.slice(0, 16); // Ensure it's a 16-digit number
   }
   const credit_card = generateRandomNumber();
   collection.insertOne({ name, email, password, amount: 0, credit_card, movements: [] });
