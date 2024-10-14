@@ -179,7 +179,7 @@ app.get('/salir', (req, res) => {
   });
 });
 
-app.post('/usuario', async (req, res) => {
+app.post('/usuario', transferirLimiter, async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -303,7 +303,7 @@ app.get('/usuario', async (req, res) => {
   });
 });
 
-app.get('/movimientos', async (req, res) => {
+app.get('/movimientos', transferirLimiter, async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
