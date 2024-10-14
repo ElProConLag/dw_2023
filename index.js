@@ -540,7 +540,7 @@ app.post('/transferir', transferirLimiter, async (req, res) => {
       });
       return;
     }
-    const userToExists = await collection.findOne({ email: email });
+    const userToExists = await collection.findOne({ email: { $eq: email } });
     console.log('User to exists:', userToExists);
     if (!userToExists) {
       console.log('User does not exist');
@@ -570,7 +570,7 @@ app.post('/transferir', transferirLimiter, async (req, res) => {
     };
     console.log('New amount to:', newAmountTo);
     const resultTo = await collection.updateOne(
-      { email: email },
+      { email: { $eq: email } },
       { $set: { amount: newAmountTo }, $push: { movements: newMovementTo } }
     );
     console.log('Result to:', resultTo);
