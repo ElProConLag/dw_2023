@@ -354,7 +354,12 @@ const retirarLimiter = rateLimit({
   max: 100, // limit each IP to 100 requests per windowMs
 });
 
-app.post('/recargar', async (req, res) => {
+const recargarLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+});
+
+app.post('/recargar', recargarLimiter, async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
