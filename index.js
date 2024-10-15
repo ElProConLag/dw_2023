@@ -197,7 +197,14 @@ app.post('/usuario', transferirLimiter, async (req, res) => {
     return;
   }
   const collection = client.db("apibank").collection("usuarios");
-  const userExists = await collection.findOne({ name: name });
+  if (typeof name !== "string") {
+    console.log('Invalid name');
+    res.status(400).json({
+      message: 'Nombre no válido'
+    });
+    return;
+  }
+  const userExists = await collection.findOne({ name: { $eq: name } });
   console.log('User exists:', userExists);
   if (userExists) {
     console.log('User already exists');
