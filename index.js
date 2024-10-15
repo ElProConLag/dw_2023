@@ -153,7 +153,7 @@ app.post('/ingresar', transferirLimiter, async (req, res) => {
   });
 });
 
-app.get('/salir', (req, res) => {
+app.get('/salir', transferirLimiter, (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
