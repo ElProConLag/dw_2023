@@ -118,7 +118,7 @@ app.post('/ingresar', async (req, res) => {
     return false;
   }
   const collection = client.db("apibank").collection("usuarios");
-  const userExists = await collection.findOne({ email: email });
+  const userExists = await collection.findOne({ email: { $eq: email } });
   console.log('User exists:', userExists);
   if(!userExists) {
     console.log('User does not exist');
