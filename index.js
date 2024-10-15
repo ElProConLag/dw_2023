@@ -77,7 +77,7 @@ conectarse();
 const app = express();
 app.use(express.json());
 
-app.get('/', (req, res) => {
+app.get('/', transferirLimiter, (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
