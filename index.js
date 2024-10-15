@@ -542,10 +542,10 @@ app.post('/transferir', transferirLimiter, async (req, res) => {
       });
       return;
     }
-    if (comment.length > 100) {
-      console.log('Comment too long');
+    if (typeof comment !== 'string' || comment.length > 100) {
+      console.log('Invalid comment');
       res.status(400).json({
-        message: 'Comentario muy largo'
+        message: 'Comentario inválido o muy largo'
       });
       return;
     }
